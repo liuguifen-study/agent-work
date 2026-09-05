@@ -3,17 +3,13 @@ import { useStore, selectedAgent } from '@/store/store';
 import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
 import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
-import { OfficeFloor } from '@/scene/office/OfficeFloor';
 import { useHive } from '@/hooks/useHive';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 import { useGodNameSync } from '@/i18n/useGodNameSync';
 import { useDirectionSync } from '@/i18n/useDirection';
 import { useArabicTerminalSync } from '@/terminal/useArabicTerminalSync';
-import { MemoryPanel } from '@/components/MemoryPanel';
-import { AgentDetailPanel } from '@/components/AgentDetailPanel';
 import { AgentStrip } from '@/components/AgentStrip';
 import { AddAgentModal } from '@/components/AddAgentModal';
-import { MichaelBooting } from '@/components/MichaelBooting';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { HivePicker } from '@/components/HivePicker';
 import { QuitWarningModal, type ClosingTimeState } from '@/components/QuitWarningModal';
@@ -22,15 +18,12 @@ import { UpdateToast } from '@/components/UpdateToast';
 import { UpdateBadge } from '@/components/UpdateBadge';
 import { useAppTheme, toggleAppTheme } from '@/design/theme';
 import { SettingsModal, type Section as SettingsSection } from '@/components/SettingsModal';
-import { PixelPanel } from '@/components/PixelPanel';
-import { PixelButton } from '@/components/PixelButton';
-import { Icon } from '@/components/Icon';
-import { SidebarSplitter } from '@/components/SidebarSplitter';
 import { acquireTerminal, notifyThemeChangeAll } from '@/components/terminalPool';
 import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
+import { CollaborationWorkbench } from '@/components/CollaborationWorkbench';
 import brandLogo from '@brand/logo.png?url';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
@@ -45,7 +38,6 @@ export function App() {
   useArabicTerminalSync();
   const agent = useStore(selectedAgent);
   const agents = useStore(s => s.agents);
-  const agentCount = agents.length;
   const bootingGodName = useResolvedGodName();
   const addAgentOpen = useStore(s => s.addAgentOpen);
   const setAddAgentOpen = useStore(s => s.setAddAgentOpen);
@@ -53,8 +45,6 @@ export function App() {
   const godStatus = useStore(s => s.godStatus);
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
   const appThemeNow = useAppTheme();
-  const sidebarWidth = useStore(s => s.sidebarWidth);
-  const setSidebarWidth = useStore(s => s.setSidebarWidth);
   const ideOpen = useStore(s => s.ideOpen);
   const setIdeOpen = useStore(s => s.setIdeOpen);
 
@@ -78,7 +68,6 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined);
   const [quitWarn, setQuitWarn] = useState<{ ptyCount: number } | null>(null);
   const [closing, setClosing] = useState<ClosingTimeState | null>(null);
-  const [vpWidth, setVpWidth] = useState<number>(window.innerWidth);
 
   // Deep link into Settings from anywhere in the tree. Settings' open state is
   // local to App, so a nested control (e.g. "set it now" beside a disabled Talk
@@ -108,9 +97,6 @@ export function App() {
       // show the voice button disabled-with-tooltip when Free Flow is on but no
       // Groq key is set (Settings keeps this in sync on save).
       useStore.getState().setHasGroqKey(!!c.groqApiKey);
-      // Mirror the active office theme so OfficeFloor renders it (gated on the
-      // tvShowOffices flag; off = always the office). Settings keeps this synced.
-      useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
       // Mirror the triggers so Settings → Connections and the Command Center's
       // Triggers tab read one list, not two copies that drift — whichever surface
       // saves calls these same setters and the other repaints. No extra IPC: main
@@ -244,13 +230,6 @@ export function App() {
     if (!config?.onboardingComplete) return;
     useStore.getState().restoreFocusMode();
   }, [config?.onboardingComplete, agents]);
-
-  // Track viewport width for splitter clamping
-  useEffect(() => {
-    const onResize = () => setVpWidth(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   if (!config) {
     return <div style={{ width: '100vw', height: '100vh', background: 'var(--cth-cream-100)' }} />;
@@ -392,90 +371,13 @@ export function App() {
 
       </div>
 
-      <div style={{
-        flex: 1, minHeight: 0,
-        display: 'flex',
-        padding: 16,
-        gap: 0
-      }}>
-        <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
-          <OfficeFloor />
-          <MemoryPanel />
-          {agentCount === 0 && godStatus === 'booting' && <MichaelBooting />}
-          {agentCount === 0 && godStatus !== 'booting' && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              pointerEvents: 'none'
-            }}>
-              <div style={{ pointerEvents: 'auto', width: 360 }}>
-                <PixelPanel variant="dialog" title="EMPTY FLOOR" noPadding>
-                  <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <p style={{ margin: 0, fontSize: 13, lineHeight: '20px' }}>
-                      No agents on the floor yet. Spawn one to see real claude output stream in here.
-                    </p>
-                    <PixelButton variant="primary" size="md" onClick={() => setAddAgentOpen(true)}>
-                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Icon name="plus" /> add agent
-                      </span>
-                    </PixelButton>
-                  </div>
-                </PixelPanel>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <SidebarSplitter
-          width={sidebarWidth}
-          onChange={setSidebarWidth}
-          viewportWidth={vpWidth}
-        />
-
-        <div style={{
-          width: sidebarWidth, flexShrink: 0,
-          minHeight: 0, display: 'flex', flexDirection: 'column'
-        }}>
-          {agent ? (
-            <AgentDetailPanel agent={agent} />
-          ) : godStatus === 'booting' ? (
-            <PixelPanel variant="default" noPadding style={{
-              padding: 16, height: '100%',
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'center', alignItems: 'center', gap: 12
-            }}>
-              <div style={{
-                fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
-                color: 'var(--cth-ink-500)'
-              }}>WAKING THE FLOOR</div>
-              <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                {bootingGodName} is clocking in.<br />
-                The terminal will land here once he's seated.
-              </p>
-            </PixelPanel>
-          ) : (
-            <PixelPanel variant="default" noPadding style={{
-              padding: 16, height: '100%',
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'center', alignItems: 'center', gap: 12
-            }}>
-              <div style={{
-                fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
-                color: 'var(--cth-ink-500)'
-              }}>NO AGENT SELECTED</div>
-              <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                Spawn an agent from the strip below.<br />
-                The terminal and command bar will land here.
-              </p>
-              <PixelButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
-                <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                  <Icon name="plus" /> add agent
-                </span>
-              </PixelButton>
-            </PixelPanel>
-          )}
-        </div>
-      </div>
+      <CollaborationWorkbench
+        agent={agent}
+        config={config}
+        godStatus={godStatus}
+        bootingGodName={bootingGodName}
+        onAddAgent={() => setAddAgentOpen(true)}
+      />
 
       <AgentStrip config={config} />
 

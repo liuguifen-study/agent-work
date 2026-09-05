@@ -17,7 +17,6 @@ import { UpdatesSection } from './UpdatesSection';
 import { SettingsHeroCard } from './SettingsHeroCard';
 import { SetupPanel } from './SetupPanel';
 import { Icon } from './Icon';
-import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
@@ -1180,12 +1179,10 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         </div>
                       </div>
 
-                      {/* Office Theme — TV-show office maps (experimental; flag tvShowOffices, default off) */}
-                      <OfficeThemePicker config={config} />
                     </>
                   )}
 
-                  {/* AGENTS & MODELS — what powers the office */}
+                  {/* AGENTS & MODELS — what powers the collaboration workspace */}
                   {/* PREREQUISITES — the external tools the app leans on and
                       whether this machine has them. It was a Command Center tab,
                       which was the wrong home: it is machine-wide state, not
